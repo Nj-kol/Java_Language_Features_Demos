@@ -1,0 +1,73 @@
+package com.njkol.collections.transferqueue;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.concurrent.*;
+
+public class TransferQueueIntegrationTest {
+
+	@Test
+	public void whenMultipleConsumersAndProducers_thenProcessAllMessages() throws InterruptedException {
+		
+		// given
+		TransferQueue<String> transferQueue = new LinkedTransferQueue<>();
+		ExecutorService exService = Executors.newFixedThreadPool(3);
+		Producer producer1 = new Producer(transferQueue, "1", 3);
+		Producer producer2 = new Producer(transferQueue, "2", 3);
+		Consumer consumer1 = new Consumer(transferQueue, "1", 3);
+		Consumer consumer2 = new Consumer(transferQueue, "2", 3);
+
+		// when
+		exService.execute(producer1);
+		exService.execute(producer2);
+		exService.execute(consumer1);
+		exService.execute(consumer2);
+
+		// then
+		exService.awaitTermination(5000, TimeUnit.MILLISECONDS);
+		exService.shutdown();
+
+		assertEquals(producer1.numberOfProducedMessages.intValue(), 3);
+		assertEquals(producer2.numberOfProducedMessages.intValue(), 3);
+	}
+
+	@Test
+	public void whenUseOneConsumerAndOneProducer_thenShouldProcessAllMessages() throws InterruptedException {
+		// given
+		TransferQueue<String> transferQueue = new LinkedTransferQueue<>();
+		ExecutorService exService = Executors.newFixedThreadPool(2);
+		Producer producer = new Producer(transferQueue, "1", 3);
+		Consumer consumer = new Consumer(transferQueue, "1", 3);
+
+		// when
+		exService.execute(producer);
+		exService.execute(consumer);
+
+		// then
+		exService.awaitTermination(5000, TimeUnit.MILLISECONDS);
+		exService.shutdown();
+
+		assertEquals(producer.numberOfProducedMessages.intValue(), 3);
+		assertEquals(consumer.numberOfConsumedMessages.intValue(), 3);
+	}
+
+	@Test
+	public void whenUseOneProducerAndNoConsumers_thenShouldFailWithTimeout() throws InterruptedException {
+		// given
+		TransferQueue<String> transferQueue = new LinkedTransferQueue<>();
+		ExecutorService exService = Executors.newFixedThreadPool(2);
+		Producer producer = new Producer(transferQueue, "1", 3);
+
+		// when
+		exService.execute(producer);
+
+		// then
+		exService.awaitTermination(5000, TimeUnit.MILLISECONDS);
+		exService.shutdown();
+
+		assertEquals(producer.numberOfProducedMessages.intValue(), 0);
+	}
+}
